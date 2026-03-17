@@ -14,18 +14,24 @@ jobs:
         run: |
           cd /home/pupan/smart-home-api/xiomi-smarthome
 
+          echo "STOP OLD"
           docker stop smart-home-api || true
           docker rm smart-home-api || true
 
+          echo "UPDATE CODE"
           git fetch origin
           git reset --hard origin/main
 
+          echo "REMOVE OLD IMAGE"
           docker rmi smart-home-api:latest || true
 
-          docker build -t smart-home-api .
+          echo "BUILD"
+          docker build --no-cache -t smart-home-api .
 
+          echo "RUN"
           docker run -d \
-            -p 5555:5555 \
+            -p 8112:5555 \
+            --restart always \
             --env-file .env \
             --name smart-home-api \
             smart-home-api
