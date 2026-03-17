@@ -10,12 +10,9 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
       - name: Deploy Docker container
         run: |
-          cd /home/pupan/smart-home-api
+          cd /home/pupan/smart-home-api/xiomi-smarthome
 
           docker stop smart-home-api || true
           docker rm smart-home-api || true
