@@ -1,0 +1,34 @@
+name: Deploy Smart Home API (Self-hosted Runner)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Deploy Docker container
+        run: |
+          cd /home/pupan/smart-home-api
+
+          docker stop smart-home-api || true
+          docker rm smart-home-api || true
+
+          git fetch origin
+          git reset --hard origin/main
+
+          docker rmi smart-home-api:latest || true
+
+          docker build -t smart-home-api .
+
+          docker run -d \
+            -p 5555:5555 \
+            --env-file .env \
+            --name smart-home-api \
+            smart-home-api
