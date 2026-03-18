@@ -31,20 +31,12 @@ devices = {
 app = Flask(__name__)
 
 
-# -----------------
-# SECURITY
-# -----------------
-
 def check_secret():
     token = request.args.get("key")
 
     if not token or token.strip() != SECRET_KEY.strip():
         abort(401, description="Unauthorized")
 
-
-# -----------------
-# DEVICE LOGIC
-# -----------------
 
 def set_power(name, value):
     device = devices[name]
@@ -88,10 +80,6 @@ def toggle(name):
         return "on"
 
 
-# -----------------
-# plug1
-# -----------------
-
 @app.route("/plug1/on")
 def plug1_on():
     check_secret()
@@ -115,10 +103,6 @@ def plug1_toggle():
     check_secret()
     return jsonify({"status": toggle("plug1")})
 
-
-# -----------------
-# plug2
-# -----------------
 
 @app.route("/plug2/on")
 def plug2_on():
