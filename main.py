@@ -31,11 +31,9 @@ devices = {
 app = Flask(__name__)
 
 
-def check_secret():
-    token = request.args.get("key")
-
+def check_secret(token):
     if not token or token.strip() != SECRET_KEY.strip():
-        abort(401, description="Unauthorized")
+        abort(401, description="Unauthorized: Invalid Secret Key")
 
 
 def set_power(name, value):
@@ -82,49 +80,57 @@ def toggle(name):
 
 @app.route("/plug1/on")
 def plug1_on():
-    check_secret()
+    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
+    check_secret(token)
     return jsonify(set_power("plug1", True))
 
 
 @app.route("/plug1/off")
 def plug1_off():
-    check_secret()
+    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
+    check_secret(token)
     return jsonify(set_power("plug1", False))
 
 
 @app.route("/plug1/status")
 def plug1_status():
-    check_secret()
+    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
+    check_secret(token)
     return jsonify({"power": get_power("plug1")})
 
 
 @app.route("/plug1/toggle")
 def plug1_toggle():
-    check_secret()
+    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
+    check_secret(token)
     return jsonify({"status": toggle("plug1")})
 
 
 @app.route("/plug2/on")
 def plug2_on():
-    check_secret()
+    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
+    check_secret(token)
     return jsonify(set_power("plug2", True))
 
 
 @app.route("/plug2/off")
 def plug2_off():
-    check_secret()
+    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
+    check_secret(token)
     return jsonify(set_power("plug2", False))
 
 
 @app.route("/plug2/status")
 def plug2_status():
-    check_secret()
+    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
+    check_secret(token)
     return jsonify({"power": get_power("plug2")})
 
 
 @app.route("/plug2/toggle")
 def plug2_toggle():
-    check_secret()
+    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
+    check_secret(token)
     return jsonify({"status": toggle("plug2")})
 
 
@@ -134,7 +140,8 @@ def plug2_toggle():
 
 @app.route("/all/on")
 def all_on():
-    check_secret()
+    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
+    check_secret(token)
 
     r1 = set_power("plug1", True)
     r2 = set_power("plug2", True)
@@ -147,7 +154,8 @@ def all_on():
 
 @app.route("/all/off")
 def all_off():
-    check_secret()
+    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
+    check_secret(token)
 
     r1 = set_power("plug1", False)
     r2 = set_power("plug2", False)
@@ -160,7 +168,8 @@ def all_off():
 
 @app.route("/all/status")
 def all_status():
-    check_secret()
+    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
+    check_secret(token)
 
     s1 = get_power("plug1")
     s2 = get_power("plug2")
