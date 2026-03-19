@@ -5,182 +5,226 @@ import os
 
 load_dotenv()
 
+# ---------------- CONFIG ----------------
+
 plug1_ip = os.getenv("MI_IP")
 plug1_token = os.getenv("MI_TOKEN")
 
 plug2_ip = os.getenv("MI_FAN_SL_IP")
 plug2_token = os.getenv("MI_FAN_SL_TOKEN")
 
+ac_ip = os.getenv("MI_AIR_IP")
+ac_token = os.getenv("MI_AIR_TOKEN")
+
 SECRET_KEY = os.getenv("SECRET_KEY")
 
-if not plug1_ip or not plug1_token:
-    raise Exception("Plug1 not set")
-
-if not plug2_ip or not plug2_token:
-    raise Exception("Plug2 not set")
-
-if not SECRET_KEY:
-    raise Exception("SECRET_KEY not set")
-
+if not all(
+    [
+        plug1_ip,
+        plug1_token,
+        plug2_ip,
+        plug2_token,
+        ac_ip,
+        ac_token,
+        SECRET_KEY,
+    ]
+):
+    raise Exception("Missing configuration in .env")
 
 devices = {
     "plug1": Device(plug1_ip, plug1_token),
     "plug2": Device(plug2_ip, plug2_token),
+    "ac": Device(ac_ip, ac_token),
 }
 
 app = Flask(__name__)
 
+# ---------------- SECURITY ----------------
+
 
 def check_secret(token):
     if not token or token.strip() != SECRET_KEY.strip():
-        abort(401, description="Unauthorized: Invalid Secret Key")
+        abort(401, description="Unauthorized")
+
+
+# ---------------- CORE ----------------
 
 
 def set_power(name, value):
     device = devices[name]
 
-    return device.send(
-        "set_properties",
-        [
-            {
-                "siid": 2,
-                "piid": 1,
-                "value": value
-            }
-        ]
-    )
+    try:
+        # AC uses siid 3
+        if name == "ac":
+            return device.send(
+                "set_properties",
+                [{"siid": 3, "piid": 1, "value": value}],
+            )
+
+        # Plug uses siid 2
+        return device.send(
+            "set_properties",
+            [{"siid": 2, "piid": 1, "value": value}],
+        )
+
+    except Exception as e:
+        return {"error": str(e)}
 
 
 def get_power(name):
     device = devices[name]
 
-    result = device.send(
-        "get_properties",
-        [
+    try:
+        if name == "ac":
+            result = device.send(
+                "get_properties",
+                [{"siid": 3, "piid": 1}],
+            )
+        else:
+            result = device.send(
+                "get_properties",
+                [{"siid": 2, "piid": 1}],
+            )
+
+        return result[0]["value"]
+
+    except Exception as e:
+        return str(e)
+
+
+# ---------------- PLUG1 ----------------
+
+
+@app.route("/plug1/<action>")
+def control_plug1(action):
+
+    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
+    check_secret(token)
+
+    if action == "on":
+        return jsonify(set_power("plug1", True))
+
+    if action == "off":
+        return jsonify(set_power("plug1", False))
+
+    if action == "status":
+        return jsonify({"power": get_power("plug1")})
+
+    abort(400)
+
+
+# ---------------- PLUG2 ----------------
+
+
+@app.route("/plug2/<action>")
+def control_plug2(action):
+
+    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
+    check_secret(token)
+
+    if action == "on":
+        return jsonify(set_power("plug2", True))
+
+    if action == "off":
+        return jsonify(set_power("plug2", False))
+
+    if action == "status":
+        return jsonify({"power": get_power("plug2")})
+
+    abort(400)
+
+
+# ---------------- AC ----------------
+
+
+@app.route("/ac/on")
+def ac_on():
+
+    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
+    check_secret(token)
+
+    return jsonify(set_power("ac", True))
+
+
+@app.route("/ac/off")
+def ac_off():
+
+    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
+    check_secret(token)
+
+    return jsonify(set_power("ac", False))
+
+
+@app.route("/ac/status")
+def ac_status():
+
+    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
+    check_secret(token)
+
+    try:
+
+        result = devices["ac"].send(
+            "get_properties",
+            [
+                {"siid": 3, "piid": 1},
+                {"siid": 3, "piid": 4},
+            ],
+        )
+
+        power = result[0]["value"]
+        temp = result[1]["value"]
+
+        return jsonify(
             {
-                "siid": 2,
-                "piid": 1
+                "power": power,
+                "temperature": temp,
             }
-        ]
-    )
+        )
 
-    return result[0]["value"]
-
-
-def toggle(name):
-    state = get_power(name)
-
-    if state:
-        set_power(name, False)
-        return "off"
-    else:
-        set_power(name, True)
-        return "on"
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
 
-@app.route("/plug1/on")
-def plug1_on():
-    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
-    check_secret(token)
-    return jsonify(set_power("plug1", True))
+# -------- TEMP --------
 
 
-@app.route("/plug1/off")
-def plug1_off():
-    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
-    check_secret(token)
-    return jsonify(set_power("plug1", False))
+@app.route("/ac/temp/<int:temp>")
+def ac_temp(temp):
 
-
-@app.route("/plug1/status")
-def plug1_status():
-    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
-    check_secret(token)
-    return jsonify({"power": get_power("plug1")})
-
-
-@app.route("/plug1/toggle")
-def plug1_toggle():
-    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
-    check_secret(token)
-    return jsonify({"status": toggle("plug1")})
-
-
-@app.route("/plug2/on")
-def plug2_on():
-    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
-    check_secret(token)
-    return jsonify(set_power("plug2", True))
-
-
-@app.route("/plug2/off")
-def plug2_off():
-    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
-    check_secret(token)
-    return jsonify(set_power("plug2", False))
-
-
-@app.route("/plug2/status")
-def plug2_status():
-    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
-    check_secret(token)
-    return jsonify({"power": get_power("plug2")})
-
-
-@app.route("/plug2/toggle")
-def plug2_toggle():
-    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
-    check_secret(token)
-    return jsonify({"status": toggle("plug2")})
-
-
-# -----------------
-# ALL
-# -----------------
-
-@app.route("/all/on")
-def all_on():
     token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
     check_secret(token)
 
-    r1 = set_power("plug1", True)
-    r2 = set_power("plug2", True)
+    try:
+        result = devices["ac"].send(
+            "set_properties",
+            [{"siid": 3, "piid": 4, "value": temp}],
+        )
+        return jsonify(result)
 
-    return jsonify({
-        "plug1": r1,
-        "plug2": r2
-    })
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
 
-@app.route("/all/off")
-def all_off():
-    token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
-    check_secret(token)
-
-    r1 = set_power("plug1", False)
-    r2 = set_power("plug2", False)
-
-    return jsonify({
-        "plug1": r1,
-        "plug2": r2
-    })
+# ---------------- ALL STATUS ----------------
 
 
 @app.route("/all/status")
 def all_status():
+
     token = request.headers.get("X-SECRET-KEY") or request.args.get("key")
     check_secret(token)
 
-    s1 = get_power("plug1")
-    s2 = get_power("plug2")
+    return jsonify(
+        {
+            "plug1": get_power("plug1"),
+            "plug2": get_power("plug2"),
+            "ac": get_power("ac"),
+        }
+    )
 
-    return jsonify({
-        "plug1": s1,
-        "plug2": s2
-    })
 
+# ---------------- MAIN ----------------
 
-# -----------------
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5555)
